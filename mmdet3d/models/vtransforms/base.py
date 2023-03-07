@@ -177,31 +177,46 @@ class BaseTransform(nn.Module):
         lidar_aug_matrix,
         **kwargs,
     ):
-        rots = camera2ego[..., :3, :3]
-        trans = camera2ego[..., :3, 3]
-        intrins = camera_intrinsics[..., :3, :3]
-        post_rots = img_aug_matrix[..., :3, :3]
-        post_trans = img_aug_matrix[..., :3, 3]
-        lidar2ego_rots = lidar2ego[..., :3, :3]
-        lidar2ego_trans = lidar2ego[..., :3, 3]
-        camera2lidar_rots = camera2lidar[..., :3, :3]
-        camera2lidar_trans = camera2lidar[..., :3, 3]
+        store_ego_motion = True
+        # store_ego_motion = False
+        
+        # args_list = (
+        #     points, camera2ego, lidar2ego, lidar2camera, lidar2image, camera_intrinsics, camera2lidar, img_aug_matrix, lidar_aug_matrix
+        # )
+        # for arg in args_list:
+        #     if arg is None:
+        #         store_ego_motion = False
+        #         break
 
-        extra_rots = lidar_aug_matrix[..., :3, :3]
-        extra_trans = lidar_aug_matrix[..., :3, 3]
+        if store_ego_motion:
+            # rots = camera2ego[..., :3, :3]
+            # trans = camera2ego[..., :3, 3]
+            # lidar2ego_rots = lidar2ego[..., :3, :3]
+            # lidar2ego_trans = lidar2ego[..., :3, 3]
+            
+            intrins = camera_intrinsics[..., :3, :3]
+            post_rots = img_aug_matrix[..., :3, :3]
+            post_trans = img_aug_matrix[..., :3, 3]
+            camera2lidar_rots = camera2lidar[..., :3, :3]
+            camera2lidar_trans = camera2lidar[..., :3, 3]
+            extra_rots = lidar_aug_matrix[..., :3, :3]
+            extra_trans = lidar_aug_matrix[..., :3, 3]
 
-        geom = self.get_geometry(
-            camera2lidar_rots,
-            camera2lidar_trans,
-            intrins,
-            post_rots,
-            post_trans,
-            extra_rots=extra_rots,
-            extra_trans=extra_trans,
-        )
+            geom = self.get_geometry(
+                camera2lidar_rots,
+                camera2lidar_trans,
+                intrins,
+                post_rots,
+                post_trans,
+                extra_rots=extra_rots,
+                extra_trans=extra_trans,
+            )
 
         x = self.get_cam_feats(img)
-        x = self.bev_pool(geom, x)
+        
+        if store_ego_motion:
+            x = self.bev_pool(geom, x)
+        
         return x
 
 

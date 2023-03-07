@@ -142,6 +142,14 @@ Then, you will be able to run:
 
 ```bash
 torchpack dist-run -np 8 python tools/test.py [config file path] pretrained/[checkpoint name].pth --eval [evaluation type]
+
+torchpack dist-run -np 1 python tools/test.py configs/nuscenes/seg/camera-bev256d2.yaml pretrained/swint-nuimages-pretrained.pth --eval segm
+
+python -m tools.test configs/nuscenes/seg/camera-bev256d2.yaml pretrained/swint-nuimages-pretrained.pth --eval segm
+
+python -m tools.test configs/nuscenes/seg/camera-bev256d2.yaml pretrained/camera-only-seg.pth --eval segm
+
+python -m tools.test configs/nuscenes/det/centerhead/lssfpn/camera/256x704/swint/default.yaml pretrained/camera-only-det.pth --eval segm
 ```
 
 For example, if you want to evaluate the detection variant of BEVFusion, you can try:

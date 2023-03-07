@@ -11,13 +11,14 @@ from mmcv import Config, DictAction
 from mmcv.cnn import fuse_conv_bn
 from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
 from mmcv.runner import get_dist_info, init_dist, load_checkpoint, wrap_fp16_model
-from mmdet3d.apis import single_gpu_test
+from mmdet3d.apis import single_gpu_test, single_gpu_video_test
 from mmdet3d.datasets import build_dataloader, build_dataset
 from mmdet3d.models import build_model
 from mmdet.apis import multi_gpu_test, set_random_seed
 from mmdet.datasets import replace_ImageToTensor
 from mmdet3d.utils import recursive_eval
 
+from autopilot_iterator.autopilot_carstate_iterator import AutopilotCarStateIter
 
 def parse_args():
     parser = argparse.ArgumentParser(description="MMDet test (and eval) a model")
@@ -112,10 +113,17 @@ def parse_args():
 
 def main():
     args = parse_args()
-    dist.init()
+    
+    # init distributed env first, since logger depends on the dist info.
+    # distributed = True
+    distributed = False
+    
+    if distributed:
+        dist.init()
 
     torch.backends.cudnn.benchmark = True
-    torch.cuda.set_device(dist.local_rank())
+    if distributed:
+        torch.cuda.set_device(dist.local_rank())
 
     assert args.out or args.eval or args.format_only or args.show or args.show_dir, (
         "Please specify at least one operation (save/eval/format/show the "
@@ -158,21 +166,27 @@ def main():
             for ds_cfg in cfg.data.test:
                 ds_cfg.pipeline = replace_ImageToTensor(ds_cfg.pipeline)
 
-    # init distributed env first, since logger depends on the dist info.
-    distributed = True
 
     # set random seeds
     if args.seed is not None:
         set_random_seed(args.seed, deterministic=args.deterministic)
 
     # build the dataloader
-    dataset = build_dataset(cfg.data.test)
-    data_loader = build_dataloader(
-        dataset,
-        samples_per_gpu=samples_per_gpu,
-        workers_per_gpu=cfg.data.workers_per_gpu,
-        dist=distributed,
-        shuffle=False,
+    # dataset = build_dataset(cfg.data.test)
+    # data_loader = build_dataloader(
+    #     dataset,
+    #     samples_per_gpu=samples_per_gpu,
+    #     workers_per_gpu=cfg.data.workers_per_gpu,
+    #     dist=distributed,
+    #     shuffle=False,
+    # )
+    data_loader = AutopilotCarStateIter(
+        autopilot_base_path="/home/aditya/Datasets/hadar_car/2023-02-08_15:42:33.822505",
+        cam_left='rgb_1.mp4',
+        cam_right='rgb_3.mp4',
+        cam_center='rgb_2.mp4',
+        car_state_csv='carState.csv',
+        gps_csv='gps.csv',
     )
 
     # build the model and load checkpoint
@@ -189,11 +203,13 @@ def main():
     if "CLASSES" in checkpoint.get("meta", {}):
         model.CLASSES = checkpoint["meta"]["CLASSES"]
     else:
-        model.CLASSES = dataset.CLASSES
+        # model.CLASSES = dataset.CLASSES
+        pass
 
     if not distributed:
         model = MMDataParallel(model, device_ids=[0])
-        outputs = single_gpu_test(model, data_loader)
+        # outputs = single_gpu_test(model, data_loader)
+        outputs = single_gpu_video_test(model, data_loader)
     else:
         model = MMDistributedDataParallel(
             model.cuda(),
@@ -223,7 +239,8 @@ def main():
             ]:
                 eval_kwargs.pop(key, None)
             eval_kwargs.update(dict(metric=args.eval, **kwargs))
-            print(dataset.evaluate(outputs, **eval_kwargs))
+            # print(dataset.evaluate(outputs, **eval_kwargs))
+            print()
 
 
 if __name__ == "__main__":
